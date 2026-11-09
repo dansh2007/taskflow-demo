@@ -13,6 +13,7 @@ const emit = defineEmits([
   'status-change',
   'priority-change',
   'edit',
+  'delete',
 ]);
 
 const statusSequence = ['todo', 'progress', 'done'];
@@ -28,14 +29,15 @@ const categoryLabel = computed(
   () => categoryLabels[props.task.category] ?? 'Навчання'
 );
 
-const statusActionText = computed(
-  () =>
-    ({
-      todo: 'Взяти в роботу',
-      progress: 'Завершити',
-      done: 'Повернути в план',
-    })[props.task.status] || 'Змінити статус'
-);
+const statusActionText = computed(() => {
+  const labels = {
+    todo: 'Взяти в роботу',
+    progress: 'Завершити',
+    done: 'Повернути в план',
+  };
+
+  return labels[props.task.status] ?? 'Змінити статус';
+});
 
 const formattedDate = computed(() => {
   if (!props.task.dueDate) return 'Без терміну';
@@ -58,8 +60,9 @@ function changeStatus() {
 
   emit('status-change', {
     id: props.task.id,
-    status:
-      statusSequence[(index + 1) % statusSequence.length],
+    status: statusSequence[
+      (index + 1) % statusSequence.length
+    ],
   });
 }
 
@@ -68,8 +71,9 @@ function changePriority() {
 
   emit('priority-change', {
     id: props.task.id,
-    priority:
-      prioritySequence[(index + 1) % prioritySequence.length],
+    priority: prioritySequence[
+      (index + 1) % prioritySequence.length
+    ],
   });
 }
 </script>
@@ -86,7 +90,7 @@ function changePriority() {
       </div>
 
       <p class="tf3-card-description">
-        {{ task.description }}
+        {{ task.description || 'Без опису' }}
       </p>
 
       <div class="tf3-card-meta">
@@ -140,6 +144,15 @@ function changePriority() {
           @click="emit('edit', task.id)"
         >
           Редагувати
+        </button>
+
+        <button
+          v-if="editable"
+          type="button"
+          class="tf3-action tf5-danger"
+          @click="emit('delete', task.id)"
+        >
+          Видалити
         </button>
       </div>
     </f7-card-content>

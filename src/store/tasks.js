@@ -58,16 +58,11 @@ function normalizeTaskData(data, originalTask = null) {
 
   if (title.length < 3 || title.length > 80) return null;
   if (description.length > 300) return null;
-
   if (!allowedStatuses.includes(data.status)) return null;
   if (!allowedPriorities.includes(data.priority)) return null;
   if (!allowedCategories.includes(data.category)) return null;
-
   if (!validDate(data.dueDate)) return null;
 
-  // Нові завдання не можуть мати минулу дату.
-  // Під час редагування дозволяємо залишити
-  // початкову дату, навіть якщо вона вже минула.
   const keepingOriginalDate =
     originalTask !== null &&
     data.dueDate === originalTask.dueDate;
@@ -106,8 +101,6 @@ export function addTask(data) {
   const normalized = normalizeTaskData(data);
 
   if (!normalized) return null;
-
-  // Перевірка унікальності назви
   if (isTitleTaken(normalized.title)) return null;
 
   const nextId =
@@ -122,7 +115,6 @@ export function addTask(data) {
   };
 
   taskState.tasks.push(newTask);
-
   return newTask;
 }
 
@@ -136,12 +128,9 @@ export function updateTask({ id, ...data }) {
   const normalized = normalizeTaskData(data, task);
 
   if (!normalized) return null;
-
-  // Під час редагування виключаємо поточне завдання
   if (isTitleTaken(normalized.title, id)) return null;
 
   Object.assign(task, normalized);
-
   return task;
 }
 
@@ -163,4 +152,16 @@ export function setTaskPriority({ id, priority }) {
   );
 
   if (task) task.priority = priority;
+}
+
+// КП № 2/8: видалення завдання за ID
+export function deleteTask(id) {
+  const index = taskState.tasks.findIndex(
+    (task) => task.id === Number(id)
+  );
+
+  if (index === -1) return false;
+
+  taskState.tasks.splice(index, 1);
+  return true;
 }
