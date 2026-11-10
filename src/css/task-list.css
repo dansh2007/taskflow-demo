@@ -1,5 +1,5 @@
 
-/* Стилі керування списком завдань TaskFlow */
+/* Панелі та блоки керування */
 
 .tf5-panel {
   margin: 22px 0;
@@ -16,6 +16,8 @@
   color: #ffffff;
 }
 
+/* Форми та фільтри */
+
 .tf5-form,
 .tf5-controls-grid {
   display: grid;
@@ -24,12 +26,14 @@
 
 .tf5-form-grid,
 .tf5-controls-grid {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
 .tf5-form label,
-.tf5-controls-grid label {
+.tf5-controls-grid label,
+.tf6-project-form label {
   display: grid;
   gap: 7px;
   color: #d7e4f5;
@@ -41,7 +45,8 @@
 .tf5-form textarea,
 .tf5-form select,
 .tf5-controls-grid input,
-.tf5-controls-grid select {
+.tf5-controls-grid select,
+.tf6-project-form input {
   box-sizing: border-box;
   display: block;
   width: 100%;
@@ -65,6 +70,8 @@
   grid-column: 1 / -1;
 }
 
+/* Кнопки */
+
 .tf5-actions,
 .tf5-card-actions {
   display: flex;
@@ -83,7 +90,9 @@
   background: #203550;
   color: #eff7ff;
   cursor: pointer;
+  font-size: 14px;
   font-weight: 600;
+  transition: filter 0.2s ease;
 }
 
 .tf5-btn--primary {
@@ -100,18 +109,20 @@
   margin-top: 18px;
 }
 
+.tf5-danger {
+  border-color: #b85d6a;
+  color: #ffb6be;
+}
+
+/* Повідомлення */
+
 .tf5-error {
-  margin: 0;
+  margin: 10px 0 0;
   padding: 10px 12px;
   border: 1px solid #d26d6d;
   border-radius: 8px;
   color: #ffd1d1;
   background: #572a35;
-}
-
-.tf5-danger {
-  border-color: #b85d6a;
-  color: #ffb6be;
 }
 
 .tf5-empty {
@@ -122,10 +133,96 @@
   color: #dae7f6;
 }
 
-/* Адаптація для смартфонів */
+.tf5-empty h3 {
+  margin: 0 0 12px;
+  font-size: 19px;
+}
+
+.tf5-empty p {
+  margin: 0 0 18px;
+  line-height: 1.6;
+}
+
+/* Керування проєктами */
+
+.tf6-project-panel {
+  margin-top: 22px;
+}
+
+.tf6-project-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.tf6-project-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  border: 1px solid #385a7a;
+  border-radius: 12px;
+  background: #1a344f;
+  color: #e4f2ff;
+  font-size: 13px;
+}
+
+.tf6-project-pill strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: #176e9a;
+  color: #ffffff;
+  text-align: center;
+}
+
+/* Створення нового проєкту */
+
+.tf6-project-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  max-width: 720px;
+}
+
+.tf6-project-form label {
+  min-width: 0;
+}
+
+.tf6-project-form button {
+  min-height: 42px;
+}
+
+/* Лічильники списку */
+
+.tf5-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.tf5-percentage {
+  padding: 8px 12px;
+  border: 1px solid #3278a6;
+  border-radius: 9px;
+  background: #173d60;
+  color: #a9dfff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Адаптація для планшетів та телефонів */
+
 @media (max-width: 680px) {
   .tf5-form-grid,
-  .tf5-controls-grid {
+  .tf5-controls-grid,
+  .tf6-project-form {
     grid-template-columns: 1fr;
   }
 
@@ -135,5 +232,31 @@
 
   .tf5-search {
     grid-column: auto;
+  }
+
+  .tf6-project-form {
+    max-width: 100%;
+  }
+
+  .tf6-project-form button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .tf5-panel h2 {
+    font-size: 18px;
+  }
+
+  .tf5-btn {
+    font-size: 13px;
+  }
+
+  .tf6-project-list {
+    gap: 8px;
+  }
+
+  .tf6-project-pill {
+    padding: 8px 10px;
   }
 }

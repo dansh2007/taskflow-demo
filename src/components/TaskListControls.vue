@@ -1,19 +1,49 @@
 
 <script setup>
 defineProps({
-  search: { type: String, default: '' },
-  status: { type: String, default: 'all' },
-  priority: { type: String, default: 'all' },
-  sort: { type: String, default: 'newest' },
-  unfinishedOnly: { type: Boolean, default: false },
+  search: {
+    type: String,
+    default: '',
+  },
+  status: {
+    type: String,
+    default: 'all',
+  },
+  priority: {
+    type: String,
+    default: 'all',
+  },
+  project: {
+    type: String,
+    default: 'all',
+  },
+  sort: {
+    type: String,
+    default: 'newest',
+  },
+  unfinishedOnly: {
+    type: Boolean,
+    default: false,
+  },
+  // Додаткове завдання № 5
+  undatedOnly: {
+    type: Boolean,
+    default: false,
+  },
+  projects: {
+    type: Array,
+    required: true,
+  },
 });
 
 const emit = defineEmits([
   'update:search',
   'update:status',
   'update:priority',
+  'update:project',
   'update:sort',
   'update:unfinishedOnly',
+  'update:undatedOnly',
   'reset',
 ]);
 
@@ -38,7 +68,9 @@ function clearSearch() {
             type="search"
             :value="search"
             placeholder="Наприклад: інтерфейс"
-            @input="emit('update:search', $event.target.value)"
+            @input="
+              emit('update:search', $event.target.value)
+            "
           />
 
           <button
@@ -57,7 +89,9 @@ function clearSearch() {
 
         <select
           :value="status"
-          @change="emit('update:status', $event.target.value)"
+          @change="
+            emit('update:status', $event.target.value)
+          "
         >
           <option value="all">Усі статуси</option>
           <option value="todo">Заплановано</option>
@@ -71,7 +105,9 @@ function clearSearch() {
 
         <select
           :value="priority"
-          @change="emit('update:priority', $event.target.value)"
+          @change="
+            emit('update:priority', $event.target.value)
+          "
         >
           <option value="all">Усі пріоритети</option>
           <option value="low">Низький</option>
@@ -81,11 +117,34 @@ function clearSearch() {
       </label>
 
       <label>
+        Проєкт
+
+        <select
+          :value="project"
+          @change="
+            emit('update:project', $event.target.value)
+          "
+        >
+          <option value="all">Усі проєкти</option>
+
+          <option
+            v-for="item in projects"
+            :key="item.id"
+            :value="item.id"
+          >
+            {{ item.title }}
+          </option>
+        </select>
+      </label>
+
+      <label>
         Сортування
 
         <select
           :value="sort"
-          @change="emit('update:sort', $event.target.value)"
+          @change="
+            emit('update:sort', $event.target.value)
+          "
         >
           <option value="newest">
             Спочатку нові
@@ -114,16 +173,36 @@ function clearSearch() {
       </label>
     </div>
 
+    <!-- Швидкий фільтр із КП № 2/8 -->
     <label class="tf5-quick-filter">
       <input
         type="checkbox"
         :checked="unfinishedOnly"
         @change="
-          emit('update:unfinishedOnly', $event.target.checked)
+          emit(
+            'update:unfinishedOnly',
+            $event.target.checked
+          )
         "
       />
 
       <span>Тільки невиконані</span>
+    </label>
+
+    <!-- Додаткове завдання № 5 -->
+    <label class="tf5-quick-filter">
+      <input
+        type="checkbox"
+        :checked="undatedOnly"
+        @change="
+          emit(
+            'update:undatedOnly',
+            $event.target.checked
+          )
+        "
+      />
+
+      <span>Лише без терміну</span>
     </label>
 
     <button
@@ -157,7 +236,7 @@ function clearSearch() {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 18px 0;
+  margin: 14px 0;
   color: #edf4ff;
   font-size: 14px;
   font-weight: 600;

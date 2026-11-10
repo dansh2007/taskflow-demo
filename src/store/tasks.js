@@ -1,17 +1,23 @@
 
-import { reactive } from 'vue';
+import { defineStore } from 'pinia';
 import initialTasks from '../data/tasks';
+import { useProjectsStore } from './projects';
 
 const allowedStatuses = ['todo', 'progress', 'done'];
 const allowedPriorities = ['low', 'medium', 'high'];
 const allowedCategories = ['study', 'work', 'personal'];
 
-export const taskState = reactive({
-  tasks: initialTasks.map((task) => ({
-    ...task,
-    category: task.category ?? 'study',
-  })),
-});
+const priorityWeight = {
+  high: 3,
+  medium: 2,
+  low: 1,
+};
+
+const statusWeight = {
+  progress: 0,
+  todo: 1,
+  done: 2,
+};
 
 function todayString() {
   const date = new Date();
@@ -24,6 +30,8 @@ function todayString() {
 }
 
 function validDate(value) {
+  if (value === '') return true;
+
   if (
     typeof value !== 'string' ||
     !/^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -33,135 +41,412 @@ function validDate(value) {
 
   const date = new Date(`${value}T12:00:00`);
 
-  return (
-    !Number.isNaN(date.getTime()) &&
-    `${date.getFullYear()}-${String(
-      date.getMonth() + 1
-    ).padStart(2, '0')}-${String(
-      date.getDate()
-    ).padStart(2, '0')}` === value
-  );
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-') === value;
 }
 
-function normalizeTaskData(data, originalTask = null) {
-  if (!data || typeof data !== 'object') return null;
+function normalizeTitle(title) {
+  return String(title ?? '')
+    .trim()
+    .toLocaleLowerCase('uk-UA');
+}
 
-  const title =
-    typeof data.title === 'string'
-      ? data.title.trim()
-      : '';
+function normalizeTaskData(values, projects, originalTask = null) {
+  if (!values || typeof values !== 'object') {
+    return null;
+  }
 
-  const description =
-    typeof data.description === 'string'
-      ? data.description.trim()
-      : '';
+  const title = String(values.title ?? '').trim();
+  const description = String(values.description ?? '').trim();
 
-  if (title.length < 3 || title.length > 80) return null;
-  if (description.length > 300) return null;
-  if (!allowedStatuses.includes(data.status)) return null;
-  if (!allowedPriorities.includes(data.priority)) return null;
-  if (!allowedCategories.includes(data.category)) return null;
-  if (!validDate(data.dueDate)) return null;
+  const status = values.status ?? 'todo';
+  const priority = values.priority ?? 'medium';
+
+  const category =
+    values.category ?? originalTask?.category ?? 'study';
+
+  const dueDate = String(values.dueDate ?? '');
+
+  const requestedProject = String(
+    values.projectId ?? originalTask?.projectId ?? 'general'
+  );
+
+  const projectId = projects.some(
+    (project) => project.id === requestedProject
+  )
+    ? requestedProject
+    : 'general';
+
+  if (title.length < 3 || title.length > 80) {
+    return null;
+  }
+
+  if (description.length > 500) {
+    return null;
+  }
+
+  if (!allowedStatuses.includes(status)) {
+    return null;
+  }
+
+  if (!allowedPriorities.includes(priority)) {
+    return null;
+  }
+
+  if (!allowedCategories.includes(category)) {
+    return null;
+  }
+
+  if (!validDate(dueDate)) {
+    return null;
+  }
 
   const keepingOriginalDate =
     originalTask !== null &&
-    data.dueDate === originalTask.dueDate;
+    dueDate === originalTask.dueDate;
 
-  if (data.dueDate < todayString() && !keepingOriginalDate) {
+  if (
+    dueDate &&
+    dueDate < todayString() &&
+    !keepingOriginalDate
+  ) {
     return null;
   }
 
   return {
     title,
     description,
-    status: data.status,
-    priority: data.priority,
-    category: data.category,
-    dueDate: data.dueDate,
+    status,
+    priority,
+    category,
+    dueDate,
+    projectId,
   };
 }
 
-function normalizeTitle(title) {
-  return title.trim().toLocaleLowerCase('uk-UA');
-}
+export const useTasksStore = defineStore('tasks', {
+  state: () => ({
+    tasks: initialTasks.map((task) => ({
+      ...task,
+      category: task.category ?? 'study',
+      projectId: task.projectId ?? 'general',
+    })),
 
-export function isTitleTaken(title, excludeId = null) {
-  if (typeof title !== 'string') return false;
+    searchText: '',
+    selectedStatus: 'all',
+    selectedPriority: 'all',
+    selectedProject: 'all',
+    sortOrder: 'newest',
+    unfinishedOnly: false,
 
-  const normalizedTitle = normalizeTitle(title);
+    // Додаткове завдання № 5
+    undatedOnly: false,
+  }),
 
-  return taskState.tasks.some(
-    (task) =>
-      task.id !== excludeId &&
-      normalizeTitle(task.title) === normalizedTitle
-  );
-}
+  getters: {
+    totalTasks: (state) => state.tasks.length,
 
-export function addTask(data) {
-  const normalized = normalizeTaskData(data);
+    completedTasks: (state) =>
+      state.tasks.filter(
+        (task) => task.status === 'done'
+      ).length,
 
-  if (!normalized) return null;
-  if (isTitleTaken(normalized.title)) return null;
+    progressTasks: (state) =>
+      state.tasks.filter(
+        (task) => task.status === 'progress'
+      ).length,
 
-  const nextId =
-    taskState.tasks.reduce(
-      (maxId, task) => Math.max(maxId, task.id),
-      0
-    ) + 1;
+    plannedTasks: (state) =>
+      state.tasks.filter(
+        (task) => task.status === 'todo'
+      ).length,
 
-  const newTask = {
-    id: nextId,
-    ...normalized,
-  };
+    activeTasks: (state) =>
+      state.tasks
+        .filter((task) => task.status !== 'done')
+        .sort((a, b) =>
+          priorityWeight[b.priority] -
+            priorityWeight[a.priority] ||
+          b.id - a.id
+        )
+        .slice(0, 3),
 
-  taskState.tasks.push(newTask);
-  return newTask;
-}
+    // Пошук і комбінована фільтрація
+    visibleTasks: (state) => {
+      const term = state.searchText
+        .trim()
+        .toLocaleLowerCase('uk-UA');
 
-export function updateTask({ id, ...data }) {
-  const task = taskState.tasks.find(
-    (item) => item.id === id
-  );
+      const filtered = state.tasks.filter((task) => {
+        const text =
+          `${task.title} ${task.description ?? ''}`
+            .toLocaleLowerCase('uk-UA');
 
-  if (!task) return null;
+        const matchesText =
+          !term || text.includes(term);
 
-  const normalized = normalizeTaskData(data, task);
+        const matchesStatus =
+          state.selectedStatus === 'all' ||
+          task.status === state.selectedStatus;
 
-  if (!normalized) return null;
-  if (isTitleTaken(normalized.title, id)) return null;
+        const matchesPriority =
+          state.selectedPriority === 'all' ||
+          task.priority === state.selectedPriority;
 
-  Object.assign(task, normalized);
-  return task;
-}
+        const matchesProject =
+          state.selectedProject === 'all' ||
+          task.projectId === state.selectedProject;
 
-export function setTaskStatus({ id, status }) {
-  if (!allowedStatuses.includes(status)) return;
+        const matchesUnfinished =
+          !state.unfinishedOnly ||
+          task.status !== 'done';
 
-  const task = taskState.tasks.find(
-    (item) => item.id === id
-  );
+        // Додаткове завдання № 5
+        const matchesUndated =
+          !state.undatedOnly ||
+          !task.dueDate;
 
-  if (task) task.status = status;
-}
+        return (
+          matchesText &&
+          matchesStatus &&
+          matchesPriority &&
+          matchesProject &&
+          matchesUnfinished &&
+          matchesUndated
+        );
+      });
 
-export function setTaskPriority({ id, priority }) {
-  if (!allowedPriorities.includes(priority)) return;
+      return filtered.sort((a, b) => {
+        if (state.sortOrder === 'title') {
+          return (
+            a.title.localeCompare(b.title, 'uk-UA') ||
+            a.id - b.id
+          );
+        }
 
-  const task = taskState.tasks.find(
-    (item) => item.id === id
-  );
+        if (state.sortOrder === 'priority') {
+          return (
+            priorityWeight[b.priority] -
+              priorityWeight[a.priority] ||
+            b.id - a.id
+          );
+        }
 
-  if (task) task.priority = priority;
-}
+        if (
+          state.sortOrder === 'dueDate' ||
+          state.sortOrder === 'dueDateDesc'
+        ) {
+          if (!a.dueDate && !b.dueDate) {
+            return b.id - a.id;
+          }
 
-// КП № 2/8: видалення завдання за ID
-export function deleteTask(id) {
-  const index = taskState.tasks.findIndex(
-    (task) => task.id === Number(id)
-  );
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
 
-  if (index === -1) return false;
+          const comparison =
+            a.dueDate.localeCompare(b.dueDate);
 
-  taskState.tasks.splice(index, 1);
-  return true;
-}
+          return (
+            (state.sortOrder === 'dueDateDesc'
+              ? -comparison
+              : comparison) ||
+            b.id - a.id
+          );
+        }
+
+        if (state.sortOrder === 'status') {
+          return (
+            statusWeight[a.status] -
+              statusWeight[b.status] ||
+            b.id - a.id
+          );
+        }
+
+        return b.id - a.id;
+      });
+    },
+
+    // Відсоток виконання видимих завдань
+    completedPercentage() {
+      const total = this.visibleTasks.length;
+
+      if (!total) return 0;
+
+      const completed = this.visibleTasks.filter(
+        (task) => task.status === 'done'
+      ).length;
+
+      return Math.round((completed / total) * 100);
+    },
+
+    isTaskListEmpty: (state) =>
+      state.tasks.length === 0,
+  },
+
+  actions: {
+    isTitleTaken(title, excludeId = null) {
+      const normalized = normalizeTitle(title);
+
+      if (!normalized) return false;
+
+      return this.tasks.some(
+        (task) =>
+          task.id !== excludeId &&
+          normalizeTitle(task.title) === normalized
+      );
+    },
+
+    // Створення завдання
+    addTask(values) {
+      const projectStore = useProjectsStore();
+
+      const normalized = normalizeTaskData(
+        values,
+        projectStore.projects
+      );
+
+      if (
+        !normalized ||
+        this.isTitleTaken(normalized.title)
+      ) {
+        return null;
+      }
+
+      const nextId =
+        this.tasks.reduce(
+          (maxId, task) => Math.max(maxId, task.id),
+          0
+        ) + 1;
+
+      const newTask = {
+        id: nextId,
+        ...normalized,
+      };
+
+      this.tasks.push(newTask);
+
+      return newTask;
+    },
+
+    // Редагування завдання
+    updateTask({ id, ...values }) {
+      const task = this.tasks.find(
+        (item) => item.id === Number(id)
+      );
+
+      if (!task) return null;
+
+      const projectStore = useProjectsStore();
+
+      const normalized = normalizeTaskData(
+        values,
+        projectStore.projects,
+        task
+      );
+
+      if (
+        !normalized ||
+        this.isTitleTaken(normalized.title, task.id)
+      ) {
+        return null;
+      }
+
+      Object.assign(task, normalized);
+
+      return task;
+    },
+
+    // Видалення завдання
+    deleteTask(id) {
+      const index = this.tasks.findIndex(
+        (task) => task.id === Number(id)
+      );
+
+      if (index === -1) return false;
+
+      this.tasks.splice(index, 1);
+
+      return true;
+    },
+
+    // Зміна статусу
+    setTaskStatus({ id, status }) {
+      if (!allowedStatuses.includes(status)) {
+        return false;
+      }
+
+      const task = this.tasks.find(
+        (item) => item.id === Number(id)
+      );
+
+      if (!task) return false;
+
+      task.status = status;
+
+      return true;
+    },
+
+    // Зміна пріоритету
+    setTaskPriority({ id, priority }) {
+      if (!allowedPriorities.includes(priority)) {
+        return false;
+      }
+
+      const task = this.tasks.find(
+        (item) => item.id === Number(id)
+      );
+
+      if (!task) return false;
+
+      task.priority = priority;
+
+      return true;
+    },
+
+    // Додаткове завдання № 4
+    // Групова зміна статусу завдань проєкту
+    moveProjectTasksToProgress(projectId) {
+      const projectStore = useProjectsStore();
+
+      const projectExists = projectStore.projects.some(
+        (project) => project.id === projectId
+      );
+
+      if (!projectExists) {
+        return 0;
+      }
+
+      let updatedCount = 0;
+
+      this.tasks.forEach((task) => {
+        if (
+          task.projectId === projectId &&
+          task.status !== 'progress'
+        ) {
+          task.status = 'progress';
+          updatedCount += 1;
+        }
+      });
+
+      return updatedCount;
+    },
+
+    // Скидання всіх фільтрів
+    resetFilters() {
+      this.searchText = '';
+      this.selectedStatus = 'all';
+      this.selectedPriority = 'all';
+      this.selectedProject = 'all';
+      this.sortOrder = 'newest';
+      this.unfinishedOnly = false;
+      this.undatedOnly = false;
+    },
+  },
+});
